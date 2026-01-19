@@ -20,6 +20,7 @@ export interface Song {
   written_story: string | null
   discovery_context: string | null
   radio_tag_url: string | null
+  motion_graphic_url: string | null
   family_only: boolean
 
   created_at: string
