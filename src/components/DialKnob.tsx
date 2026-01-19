@@ -21,8 +21,8 @@ export function DialKnob({
 }: DialKnobProps) {
   const knobRef = useRef<HTMLDivElement>(null)
   const isDragging = useRef(false)
-  const startY = useRef(0)
-  const startValue = useRef(0)
+  const lastAngle = useRef(0)
+  const accumulatedValue = useRef(0)
 
   // Map value (0-10) to rotation angle (-135° to +135°)
   const rotation = ((value / 10) * 270) - 135
@@ -30,38 +30,60 @@ export function DialKnob({
   const clamp = (val: number, min: number, max: number) =>
     Math.min(Math.max(val, min), max)
 
+  // Calculate angle from knob center to a point
+  const getAngle = useCallback((clientX: number, clientY: number) => {
+    if (!knobRef.current) return 0
+    const rect = knobRef.current.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    // atan2 returns angle in radians, convert to degrees
+    // Offset by 90° so that "up" is 0°
+    const angle = Math.atan2(clientY - centerY, clientX - centerX) * (180 / Math.PI) + 90
+    return angle
+  }, [])
+
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     isDragging.current = true
-    startY.current = e.clientY
-    startValue.current = value
+    lastAngle.current = getAngle(e.clientX, e.clientY)
+    accumulatedValue.current = value
     e.preventDefault()
-  }, [value])
+  }, [value, getAngle])
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     isDragging.current = true
-    startY.current = e.touches[0].clientY
-    startValue.current = value
-  }, [value])
+    lastAngle.current = getAngle(e.touches[0].clientX, e.touches[0].clientY)
+    accumulatedValue.current = value
+  }, [value, getAngle])
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMove = (clientX: number, clientY: number) => {
       if (!isDragging.current) return
 
-      // Drag up = increase, drag down = decrease
-      // 100px of movement = full range (0-10)
-      const deltaY = startY.current - e.clientY
-      const deltaValue = (deltaY / 100) * 10
-      const newValue = clamp(Math.round(startValue.current + deltaValue), 0, 10)
-      onChange(newValue)
+      const currentAngle = getAngle(clientX, clientY)
+      let deltaAngle = currentAngle - lastAngle.current
+
+      // Handle wrap-around at ±180°
+      if (deltaAngle > 180) deltaAngle -= 360
+      if (deltaAngle < -180) deltaAngle += 360
+
+      // Convert angle delta to value delta (270° = full range of 10)
+      const deltaValue = (deltaAngle / 270) * 10
+      accumulatedValue.current = clamp(accumulatedValue.current + deltaValue, 0, 10)
+
+      const newValue = Math.round(accumulatedValue.current)
+      if (newValue !== value) {
+        onChange(newValue)
+      }
+
+      lastAngle.current = currentAngle
+    }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      handleMove(e.clientX, e.clientY)
     }
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!isDragging.current) return
-
-      const deltaY = startY.current - e.touches[0].clientY
-      const deltaValue = (deltaY / 100) * 10
-      const newValue = clamp(Math.round(startValue.current + deltaValue), 0, 10)
-      onChange(newValue)
+      handleMove(e.touches[0].clientX, e.touches[0].clientY)
     }
 
     const handleEnd = () => {
@@ -79,7 +101,7 @@ export function DialKnob({
       document.removeEventListener('touchmove', handleTouchMove)
       document.removeEventListener('touchend', handleEnd)
     }
-  }, [onChange])
+  }, [onChange, getAngle, value])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
@@ -128,7 +150,7 @@ export function DialKnob({
 
           {/* Inner knob face */}
           <div
-            className="absolute inset-2 rounded-full bg-gradient-to-b from-gray-600 to-gray-800 shadow-inner transition-transform duration-75"
+            className="absolute inset-2 rounded-full bg-gradient-to-b from-gray-600 to-gray-800 shadow-inner"
             style={{ transform: `rotate(${rotation}deg)` }}
           >
             {/* Indicator notch */}
