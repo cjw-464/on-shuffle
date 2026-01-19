@@ -1,24 +1,16 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { MixingBoard } from '@/components/MixingBoard'
+import { MixingBoard, DEFAULT_VALUES } from '@/components/MixingBoard'
+import { MoodPresetBar } from '@/components/MoodPresetBar'
 import { IPod } from '@/components/IPod'
 import { SongActions } from '@/components/SongActions'
 import { selectSong, DialValues } from '@/lib/songSelection'
 import { Song } from '@/types/song'
 
-const DEFAULT_DIALS: DialValues = {
-  production: 5,
-  craft: 5,
-  groove: 5,
-  sonic_roots: 5,
-  mood: 5,
-  intensity: 5,
-  vibe: 5,
-}
-
 export default function Home() {
-  const [dialValues, setDialValues] = useState<DialValues>(DEFAULT_DIALS)
+  const [dialValues, setDialValues] = useState<DialValues>(DEFAULT_VALUES)
+  const [activePreset, setActivePreset] = useState<string | null>(null)
 
   // Song history for back/forward navigation
   const [songHistory, setSongHistory] = useState<Song[]>([])
@@ -84,6 +76,24 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Handle preset selection - sets dial values and marks preset as active
+  const handlePresetSelect = useCallback((presetName: string | null, presetDialValues: DialValues | null) => {
+    setActivePreset(presetName)
+    if (presetDialValues) {
+      setDialValues(presetDialValues)
+    }
+  }, [])
+
+  // Handle manual dial change - updates values and clears active preset
+  const handleDialChange = useCallback((newValues: DialValues) => {
+    setDialValues(newValues)
+  }, [])
+
+  // Called when user manually adjusts a dial (not from preset)
+  const handleManualDialChange = useCallback(() => {
+    setActivePreset(null)
+  }, [])
+
   // Skip forward: go to next in history, or fetch new song
   const handleSkipForward = useCallback(() => {
     if (historyIndex < songHistory.length - 1) {
@@ -137,9 +147,25 @@ export default function Home() {
         </header>
 
         <div className="grid lg:grid-cols-2 gap-8 items-start">
-          {/* Left: Dials */}
+          {/* Left: Filter Controls Container */}
           <div className="space-y-6">
-            <MixingBoard onChange={setDialValues} />
+            {/* Combined Mixing Board + Mood Presets Container */}
+            <div className="rounded-2xl p-4 shadow-2xl border border-gray-800 bg-gray-900/50">
+              <MixingBoard
+                values={dialValues}
+                onChange={handleDialChange}
+                onManualChange={handleManualDialChange}
+                className="border-0 shadow-none p-0"
+              />
+
+              {/* Mood Presets - inside same container */}
+              <div className="mt-4 pt-4 border-t border-gray-800/50">
+                <MoodPresetBar
+                  onPresetSelect={handlePresetSelect}
+                  activePreset={activePreset}
+                />
+              </div>
+            </div>
 
             {/* Session Stats */}
             <div className="flex justify-between text-sm text-gray-500 px-2">
@@ -154,6 +180,8 @@ export default function Home() {
               </summary>
               <pre className="mt-2 bg-gray-900 p-2 rounded overflow-x-auto">
                 {JSON.stringify({
+                  dialValues,
+                  activePreset,
                   historyIndex,
                   historyLength: songHistory.length,
                   totalPoolSize,

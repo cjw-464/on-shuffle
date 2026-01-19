@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Fader } from './Fader'
 import { DialValues } from '@/lib/songSelection'
 
@@ -25,7 +25,9 @@ const DEFAULT_VALUES: DialValues = {
 }
 
 interface MixingBoardProps {
+  values?: DialValues
   onChange?: (values: DialValues) => void
+  onManualChange?: () => void // Called when user manually adjusts a dial
   // Image-ready props for future artwork
   boardImage?: string
   trackImage?: string
@@ -34,25 +36,37 @@ interface MixingBoardProps {
 }
 
 export function MixingBoard({
+  values: externalValues,
   onChange,
+  onManualChange,
   boardImage,
   trackImage,
   knobImage,
   className = '',
 }: MixingBoardProps) {
-  const [values, setValues] = useState<DialValues>(DEFAULT_VALUES)
+  const [internalValues, setInternalValues] = useState<DialValues>(externalValues || DEFAULT_VALUES)
+
+  // Sync with external values when they change (e.g., from preset selection)
+  useEffect(() => {
+    if (externalValues) {
+      setInternalValues(externalValues)
+    }
+  }, [externalValues])
 
   const handleFaderChange = useCallback((faderId: keyof DialValues, newValue: number) => {
-    setValues(prev => {
+    setInternalValues(prev => {
       const updated = { ...prev, [faderId]: newValue }
       onChange?.(updated)
       return updated
     })
-  }, [onChange])
+    // Signal that user manually adjusted a dial
+    onManualChange?.()
+  }, [onChange, onManualChange])
 
   const handleReset = () => {
-    setValues(DEFAULT_VALUES)
+    setInternalValues(DEFAULT_VALUES)
     onChange?.(DEFAULT_VALUES)
+    onManualChange?.()
   }
 
   return (
@@ -89,7 +103,7 @@ export function MixingBoard({
               label={fader.label}
               topLabel={fader.topLabel}
               bottomLabel={fader.bottomLabel}
-              value={values[fader.id as keyof DialValues]}
+              value={internalValues[fader.id as keyof DialValues]}
               onChange={(newValue) => handleFaderChange(fader.id as keyof DialValues, newValue)}
               trackImage={trackImage}
               knobImage={knobImage}
@@ -100,3 +114,5 @@ export function MixingBoard({
     </div>
   )
 }
+
+export { DEFAULT_VALUES }

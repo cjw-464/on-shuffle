@@ -21,7 +21,7 @@ export interface Song {
   discovery_context: string | null
   radio_tag_url: string | null
   motion_graphic_url: string | null
-  mood_presets: string[]
+  mood_presets: string[] | null
   family_only: boolean
 
   created_at: string
