@@ -3,21 +3,15 @@
 import { useState, useCallback } from 'react'
 import { DialKnob } from './DialKnob'
 
-export interface DialValues {
-  production: number
-  craft: number
-  groove: number
-  sonicRoots: number
-  mood: number
-  intensity: number
-  vibe: number
-}
+import { DialValues } from '@/lib/songSelection'
+
+export type { DialValues }
 
 const DIAL_CONFIG = [
   { id: 'production', label: 'Production', leftLabel: 'Roots', rightLabel: 'Pop' },
   { id: 'craft', label: 'Craft', leftLabel: 'DIY', rightLabel: 'Virtuosic' },
   { id: 'groove', label: 'Groove', leftLabel: 'Straight', rightLabel: 'Pocket' },
-  { id: 'sonicRoots', label: 'Sonic Roots', leftLabel: 'Backwoods', rightLabel: 'Big City' },
+  { id: 'sonic_roots', label: 'Sonic Roots', leftLabel: 'Backwoods', rightLabel: 'Big City' },
   { id: 'mood', label: 'Mood', leftLabel: 'Dark', rightLabel: 'Bright' },
   { id: 'intensity', label: 'Intensity', leftLabel: 'Mellow', rightLabel: 'Intense' },
   { id: 'vibe', label: 'Vibe', leftLabel: 'Familiar', rightLabel: 'Out There' },
@@ -27,7 +21,7 @@ const DEFAULT_VALUES: DialValues = {
   production: 5,
   craft: 5,
   groove: 5,
-  sonicRoots: 5,
+  sonic_roots: 5,
   mood: 5,
   intensity: 5,
   vibe: 5,
