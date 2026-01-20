@@ -230,6 +230,7 @@ export function IPod({
                 <MenuScreen
                   items={availableItems}
                   highlightedIndex={highlightedIndex}
+                  onSelect={selectDisplayMode}
                 />
               ) : displayMode === 'nowPlaying' ? (
                 <NowPlayingScreen
@@ -286,9 +287,11 @@ export function IPod({
 function MenuScreen({
   items,
   highlightedIndex,
+  onSelect,
 }: {
   items: MenuItem[]
   highlightedIndex: number
+  onSelect: (id: DisplayMode) => void
 }) {
   return (
     <div className="h-full flex flex-col text-white bg-gradient-to-b from-gray-800 to-gray-900">
@@ -303,10 +306,11 @@ function MenuScreen({
         {items.map((item, index) => (
           <div
             key={item.id}
-            className={`px-3 py-1.5 flex items-center justify-between ${
+            onClick={() => onSelect(item.id)}
+            className={`px-3 py-1.5 flex items-center justify-between cursor-pointer transition-colors ${
               index === highlightedIndex
                 ? 'bg-blue-500 text-white'
-                : 'text-gray-200'
+                : 'text-gray-200 hover:bg-gray-700'
             }`}
           >
             <span className="text-[11px] font-medium">{item.label}</span>
@@ -494,9 +498,99 @@ function ClickWheel({
   centerDiameter: number
 }) {
   const textSize = diameter * 0.055
+  const wheelRef = useRef<HTMLDivElement>(null)
+  const isDragging = useRef(false)
+  const lastAngle = useRef(0)
+  const accumulatedRotation = useRef(0)
+  const ROTATION_THRESHOLD = 30 // degrees needed to trigger navigation
+
+  // Calculate angle from center of wheel
+  const getAngle = (clientX: number, clientY: number) => {
+    if (!wheelRef.current) return 0
+    const rect = wheelRef.current.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    const deltaX = clientX - centerX
+    const deltaY = clientY - centerY
+    return Math.atan2(deltaY, deltaX) * (180 / Math.PI)
+  }
+
+  // Check if point is in the wheel ring (not center button)
+  const isInWheelRing = (clientX: number, clientY: number) => {
+    if (!wheelRef.current) return false
+    const rect = wheelRef.current.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    const distance = Math.sqrt(
+      Math.pow(clientX - centerX, 2) + Math.pow(clientY - centerY, 2)
+    )
+    const outerRadius = diameter / 2
+    const innerRadius = centerDiameter / 2 + 10 // Add buffer
+    return distance > innerRadius && distance < outerRadius
+  }
+
+  const handleWheelStart = (clientX: number, clientY: number) => {
+    if (!isInWheelRing(clientX, clientY)) return
+    isDragging.current = true
+    lastAngle.current = getAngle(clientX, clientY)
+    accumulatedRotation.current = 0
+  }
+
+  const handleWheelMove = (clientX: number, clientY: number) => {
+    if (!isDragging.current) return
+
+    const currentAngle = getAngle(clientX, clientY)
+    let delta = currentAngle - lastAngle.current
+
+    // Handle angle wrap-around
+    if (delta > 180) delta -= 360
+    if (delta < -180) delta += 360
+
+    accumulatedRotation.current += delta
+    lastAngle.current = currentAngle
+
+    // Trigger navigation based on accumulated rotation
+    if (accumulatedRotation.current >= ROTATION_THRESHOLD) {
+      onDown() // Clockwise = forward/down
+      accumulatedRotation.current = 0
+    } else if (accumulatedRotation.current <= -ROTATION_THRESHOLD) {
+      onUp() // Counter-clockwise = back/up
+      accumulatedRotation.current = 0
+    }
+  }
+
+  const handleWheelEnd = () => {
+    isDragging.current = false
+    accumulatedRotation.current = 0
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => handleWheelMove(e.clientX, e.clientY)
+    const handleMouseUp = () => handleWheelEnd()
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        handleWheelMove(e.touches[0].clientX, e.touches[0].clientY)
+      }
+    }
+    const handleTouchEnd = () => handleWheelEnd()
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    document.addEventListener('touchmove', handleTouchMove)
+    document.addEventListener('touchend', handleTouchEnd)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('touchmove', handleTouchMove)
+      document.removeEventListener('touchend', handleTouchEnd)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onUp, onDown])
 
   return (
     <div
+      ref={wheelRef}
       className="relative rounded-full"
       style={{
         width: diameter,
@@ -505,6 +599,13 @@ function ClickWheel({
           ? `url(${wheelImage}) center/cover`
           : 'radial-gradient(circle at 30% 30%, #3a3a3a 0%, #2D2D2D 50%, #252525 100%)',
         boxShadow: '0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
+        cursor: 'grab',
+      }}
+      onMouseDown={(e) => handleWheelStart(e.clientX, e.clientY)}
+      onTouchStart={(e) => {
+        if (e.touches.length > 0) {
+          handleWheelStart(e.touches[0].clientX, e.touches[0].clientY)
+        }
       }}
     >
       {/* Menu (top) */}
