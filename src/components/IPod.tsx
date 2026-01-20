@@ -176,7 +176,7 @@ export function IPod({
 
       {/* iPod Device */}
       <div
-        className="relative"
+        className="relative select-none"
         style={{
           width: IPOD.width,
           height: IPOD.height,
@@ -502,7 +502,10 @@ function ClickWheel({
   const isDragging = useRef(false)
   const lastAngle = useRef(0)
   const accumulatedRotation = useRef(0)
-  const ROTATION_THRESHOLD = 30 // degrees needed to trigger navigation
+  const ROTATION_THRESHOLD = 22 // degrees needed to trigger navigation
+
+  // Visual feedback state
+  const [isScrolling, setIsScrolling] = useState(false)
 
   // Calculate angle from center of wheel
   const getAngle = (clientX: number, clientY: number) => {
@@ -532,6 +535,7 @@ function ClickWheel({
   const handleWheelStart = (clientX: number, clientY: number) => {
     if (!isInWheelRing(clientX, clientY)) return
     isDragging.current = true
+    setIsScrolling(true)
     lastAngle.current = getAngle(clientX, clientY)
     accumulatedRotation.current = 0
   }
@@ -562,6 +566,7 @@ function ClickWheel({
   const handleWheelEnd = () => {
     isDragging.current = false
     accumulatedRotation.current = 0
+    setIsScrolling(false)
   }
 
   useEffect(() => {
@@ -591,15 +596,18 @@ function ClickWheel({
   return (
     <div
       ref={wheelRef}
-      className="relative rounded-full"
+      className="relative rounded-full select-none"
       style={{
         width: diameter,
         height: diameter,
         background: wheelImage
           ? `url(${wheelImage}) center/cover`
           : 'radial-gradient(circle at 30% 30%, #3a3a3a 0%, #2D2D2D 50%, #252525 100%)',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
-        cursor: 'grab',
+        boxShadow: isScrolling
+          ? '0 2px 12px rgba(59,130,246,0.3), inset 0 1px 0 rgba(255,255,255,0.05)'
+          : '0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
+        cursor: isScrolling ? 'grabbing' : 'grab',
+        transition: 'box-shadow 0.15s ease-out',
       }}
       onMouseDown={(e) => handleWheelStart(e.clientX, e.clientY)}
       onTouchStart={(e) => {

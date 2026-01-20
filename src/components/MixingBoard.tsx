@@ -71,7 +71,7 @@ export function MixingBoard({
 
   return (
     <div
-      className={`rounded-2xl p-4 shadow-2xl border border-gray-800 ${className}`}
+      className={`rounded-2xl p-4 shadow-2xl border border-gray-800 select-none ${className}`}
       style={{
         backgroundColor: boardImage ? 'transparent' : '#111827',
         backgroundImage: boardImage ? `url(${boardImage})` : undefined,

@@ -31,6 +31,9 @@ export default function Home() {
   // Guard against double-fetch in StrictMode
   const hasFetchedInitial = useRef(false)
 
+  // Track if dial change is from user interaction (not initial load)
+  const isUserDialChange = useRef(false)
+
   // Current song is derived from history + index
   const currentSong = historyIndex >= 0 ? songHistory[historyIndex] : null
   const songsSeenCount = songHistory.length
@@ -76,16 +79,58 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Auto-refresh when dials change (debounced) - like a real mixing board
+  useEffect(() => {
+    // Skip if this is the initial load, not a user change
+    if (!isUserDialChange.current) return
+
+    const timer = setTimeout(() => {
+      // Reset session and fetch new song with updated dial values
+      setSongHistory([])
+      setHistoryIndex(-1)
+      setTotalPoolSize(0)
+      setError(null)
+
+      // Fetch fresh song with new dial values (need to call directly since state just reset)
+      const fetchFresh = async () => {
+        setIsLoading(true)
+        try {
+          const result = await selectSong(dialValues, [])
+          setTotalPoolSize(result.poolSize)
+          if (result.song) {
+            setSongHistory([result.song])
+            setHistoryIndex(0)
+            setIsPlaying(true)
+          } else if (result.allSongsShown) {
+            setError('You\'ve seen all matching songs!')
+          } else {
+            setError('No songs match your dial settings.')
+          }
+        } catch (err) {
+          console.error('Error selecting song:', err)
+          setError('Failed to load song.')
+        } finally {
+          setIsLoading(false)
+        }
+      }
+      fetchFresh()
+    }, 400) // 400ms debounce - responsive but not too aggressive
+
+    return () => clearTimeout(timer)
+  }, [dialValues])
+
   // Handle preset selection - sets dial values and marks preset as active
   const handlePresetSelect = useCallback((presetName: string | null, presetDialValues: DialValues | null) => {
     setActivePreset(presetName)
     if (presetDialValues) {
+      isUserDialChange.current = true
       setDialValues(presetDialValues)
     }
   }, [])
 
   // Handle manual dial change - updates values and clears active preset
   const handleDialChange = useCallback((newValues: DialValues) => {
+    isUserDialChange.current = true
     setDialValues(newValues)
   }, [])
 
@@ -209,7 +254,7 @@ export default function Home() {
                 <IPod
                   song={currentSong}
                   poolSize={totalPoolSize}
-                  songsSeenCount={songsSeenCount}
+                  songsSeenCount={historyIndex + 1}
                   isPlaying={isPlaying}
                   canGoBack={canGoBack}
                   canGoForward={canGoForward}
